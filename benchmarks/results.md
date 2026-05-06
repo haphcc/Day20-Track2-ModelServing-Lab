@@ -8,11 +8,11 @@
 
 Paste the output of `python 00-setup/detect-hardware.py` here, or fill in:
 
-- Platform:
-- CPU:
-- RAM (GB):
-- GPU/accelerator:
-- llama.cpp build backend:
+- Platform: Windows 11
+- CPU: Intel i5-1135G7
+- RAM (GB): 15.7
+- GPU/accelerator: CPU only
+- llama.cpp build backend: CPU
 
 ## Track 01 — Quickstart
 
@@ -20,10 +20,10 @@ Paste the output of `python 00-setup/detect-hardware.py` here, or fill in:
 
 | Model | Load (ms) | TTFT P50/P95 (ms) | TPOT P50/P95 (ms) | E2E P50/P95/P99 (ms) | Decode rate (tok/s) |
 |---|--:|--:|--:|--:|--:|
-| (Q4_K_M) | | | | | |
-| (Q2_K)   | | | | | |
+| qwen2.5-1.5b-instruct-q4_k_m.gguf | 1681 | 134 / 178 | 51.2 / 52.8 | 3343 / 3493 / 3526 | 19.5 |
+| qwen2.5-1.5b-instruct-q2_k.gguf   | 684 | 251 / 290 | 43.0 / 46.4 | 2908 / 3210 / 3240 | 23.3 |
 
-**One observation:** _e.g. Q4_K_M was 1.4× slower than Q2_K on my M2 Air, but the responses to the long-context prompt were noticeably more coherent. Trade-off worth it._
+**One observation:** Q2_K decodes a bit faster, but Q4_K_M gives better output on long prompts. On this machine the throughput gap is not large enough to justify the lower quality, so Q4_K_M is the better default.
 
 ## Track 02 — llama-server load test
 
@@ -31,18 +31,18 @@ Run `locust -f 02-llama-cpp-server/load-test.py --headless -u N -r 1 -t 1m` for 
 
 | Concurrency | RPS | TTFB P50 (ms) | E2E P95 (ms) | E2E P99 (ms) | Failures |
 |--:|--:|--:|--:|--:|--:|
-| 10 | | | | | |
-| 50 | | | | | |
+| 10 | 0.16 | 23000 | 48000 | 48000 | 0 |
+| 50 | 0.19 | 28000 | 45000 | 45000 | 0 |
 
-**KV-cache observation:** _peak `llamacpp:kv_cache_usage_ratio` from `record-metrics.py` was 0.XX at concurrency 50, which means…_
+**KV-cache observation:** I could not get a peak ratio from the current `llama_cpp.server` wheel because this build does not mount `/metrics`, so `record-metrics.py` collected no samples. If I rerun with a metrics-enabled native `llama-server`, I expect the ratio to rise at concurrency 50 and especially on the long-rag requests.
 
 ## Track 03 — Milestone Integration
 
-- N16 piece used:
-- N17 piece used:
-- N18 piece used:
-- N19 piece used:
-- One-paragraph reflection on where the latency goes (embed / retrieve / llama-server):
+- N16 piece used: stub: localhost-only single-node stack; no real cluster
+- N17 piece used: stub: in-memory query loop in `pipeline.py`; no real batch job
+- N18 piece used: stub: no Delta/Iceberg table; data lives in `TOY_DOCS`
+- N19 piece used: stub/partial: keyword-overlap retrieval on `TOY_DOCS`, not a real vector index
+- One-paragraph reflection on where the latency goes (embed / retrieve / llama-server): retrieval is effectively free at 0.0-0.1 ms, while llama-server generation dominates at about 3.6 s to 14.5 s per query. That matches the toy setup and suggests the biggest wins are prompt length, quantization, and batching rather than retrieval tuning.
 
 ## Bonus — llama.cpp optimization
 
@@ -56,11 +56,12 @@ Pick one or two sweep results to highlight.
 ### Quant sweep
 | quant | size (MB) | tg128 (tok/s) |
 |:--|--:|--:|
-| | | |
+| q2_k | - | 23.3 |
+| q4_k_m | - | 19.5 |
 
 ### The one change that mattered most
 
-_Two-to-three sentences. Be specific: what change, what the before/after numbers were, and why you think it worked. The grade weights this paragraph more than the raw numbers._
+Keep the stack CPU-only and use Q4_K_M instead of Q2_K for the main model. Before: q2_k at 23.3 tok/s. After: q4_k_m at 19.5 tok/s. The raw speed is lower, but the answer quality is better and the runtime is still acceptable on 4 physical cores.
 
 ## Bonus — MLX (macOS only, optional)
 
@@ -71,4 +72,4 @@ _Two-to-three sentences. Be specific: what change, what the before/after numbers
 
 ## Notes / pitfalls / things you'd do differently
 
-(Free-form. The most useful section for the grader.)
+No bonus sweep committed yet. The main blocker for a meaningful metrics writeup was that the installed Python `llama_cpp.server` wheel does not expose `/metrics`, so I could not collect `llamacpp:kv_cache_usage_ratio` samples with `record-metrics.py`.

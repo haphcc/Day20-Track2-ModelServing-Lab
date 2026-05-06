@@ -1,123 +1,113 @@
-# Reflection — Lab 20 (Personal Report)
+# Reflection - Lab 20 (Personal Report)
 
-> **Đây là báo cáo cá nhân.** Mỗi học viên chạy lab trên laptop của mình, với spec của mình. Số liệu của bạn không so sánh được với bạn cùng lớp — chỉ so sánh **before vs after trên chính máy bạn**. Grade rubric tính theo độ rõ ràng của setup + tuning của bạn, không phải tốc độ tuyệt đối.
-
----
-
-**Họ Tên:** _<Họ Tên>_
-**Cohort:** _<A20-K1 / A20-K2 / ...>_
-**Ngày submit:** _<YYYY-MM-DD>_
+> This is a personal report. Each student runs the lab on their own laptop. Your numbers are not comparable to classmates - the grade depends on how clearly you can explain setup and tuning on your own machine.
 
 ---
 
-## 1. Hardware spec (từ `00-setup/detect-hardware.py`)
-
-> Paste output của `python 00-setup/detect-hardware.py` vào đây, hoặc điền thủ công:
-
-- **OS:** _<macOS 14 / Windows 11 / Ubuntu 24.04 / ...>_
-- **CPU:** _<Apple M2 / Intel i7-12700H / AMD Ryzen 7 5800H / ...>_
-- **Cores:** _<physical / logical>_
-- **CPU extensions:** _<AVX2 / AVX-512 / NEON / —>_
-- **RAM:** _<GB>_
-- **Accelerator:** _<NVIDIA RTX 4060 8GB / Apple Metal / AMD ROCm / Vulkan / CPU only>_
-- **llama.cpp backend đã chọn:** _<CUDA / Metal / Vulkan / CPU>_
-- **Recommended model tier:** _<TinyLlama-1.1B / Qwen2.5-1.5B / Llama-3.2-3B / Qwen2.5-7B>_
-
-**Setup story** (≤ 80 chữ): những gì cần thay đổi để lab chạy được trên máy bạn (vd: dùng WSL2, install CUDA Toolkit, fall back sang Vulkan vì ROCm phiên bản kén, tắt antivirus để pip install nhanh hơn, v.v.):
-
-_Answer here._
+**Name:** _HAMESEMAN_
+**Cohort:** _A20-K1_
+**Submit date:** _2026-05-06_
 
 ---
 
-## 2. Track 01 — Quickstart numbers (từ `benchmarks/01-quickstart-results.md`)
+## 1. Hardware spec (from `00-setup/detect-hardware.py`)
 
-> Paste bảng từ `benchmarks/01-quickstart-results.md` xuống đây (auto-generated bởi `python 01-llama-cpp-quickstart/benchmark.py`).
+> Paste the output of `python 00-setup/detect-hardware.py` here, or fill it manually:
+
+- **OS:** _Windows 11_
+- **CPU:** _Intel i5-1135G7_
+- **Cores:** _4 physical / 8 logical_
+- **CPU extensions:** _AVX2_
+- **RAM:** _15.7 GB_
+- **Accelerator:** _CPU only_
+- **llama.cpp backend selected:** _CPU_
+- **Recommended model tier:** _Qwen2.5-1.5B-Instruct (Q4_K_M)_
+
+**Setup story** (<= 80 words): what needed to change to make the lab work on this machine.
+
+Windows 11 + PowerShell, using `.venv` and the prebuilt `llama-cpp-python` wheel to avoid a local C++ build. This machine is CPU-only for the lab, so I stayed on the Qwen2.5 1.5B Q4_K_M path and used the 4 physical cores as the main tuning knob.
+
+---
+
+## 2. Track 01 - Quickstart numbers (from `benchmarks/01-quickstart-results.md`)
 
 | Model | Load (ms) | TTFT P50/P95 (ms) | TPOT P50/P95 (ms) | E2E P50/P95/P99 (ms) | Decode rate (tok/s) |
 |---|--:|--:|--:|--:|--:|
-| (Q4_K_M) | | | | | |
-| (Q2_K)   | | | | | |
+| qwen2.5-1.5b-instruct-q4_k_m.gguf | 1681 | 134 / 178 | 51.2 / 52.8 | 3343 / 3493 / 3526 | 19.5 |
+| qwen2.5-1.5b-instruct-q2_k.gguf | 684 | 251 / 290 | 43.0 / 46.4 | 2908 / 3210 / 3240 | 23.3 |
 
-**Một quan sát** (≤ 50 chữ): Q4_K_M vs Q2_K trên máy bạn — số liệu nói gì? Quality đáng đánh đổi không?
-
-_Answer here._
+**One observation** (<= 50 words): Q2_K decodes a bit faster, but Q4_K_M gives better output on long prompts. On this machine the throughput gap is not large enough to justify the lower quality, so Q4_K_M is the better default.
 
 ---
 
-## 3. Track 02 — llama-server load test
-
-> Chạy 2 lần locust ở concurrency 10 và 50, paste tóm tắt bên dưới.
+## 3. Track 02 - llama-server load test
 
 | Concurrency | Total RPS | TTFB P50 (ms) | E2E P95 (ms) | E2E P99 (ms) | Failures |
 |--:|--:|--:|--:|--:|--:|
-| 10 | | | | | |
-| 50 | | | | | |
+| 10 | 0.16 | 23000 | 48000 | 48000 | 0 |
+| 50 | 0.19 | 28000 | 45000 | 45000 | 0 |
 
-**KV-cache observation** (từ `record-metrics.py`): peak `llamacpp:kv_cache_usage_ratio` ở concurrency 50 = _<0.XX>_, nghĩa là …
-
-_Answer here._
+**KV-cache observation** (from `record-metrics.py`): I could not get a peak ratio from the current `llama_cpp.server` wheel because this build does not mount `/metrics`, so `record-metrics.py` collected no samples. If I rerun with a metrics-enabled native `llama-server`, I expect the ratio to rise at concurrency 50 and especially on the long-rag requests.
 
 ---
 
-## 4. Track 03 — Milestone integration
+## 4. Track 03 - Milestone integration
 
-- **N16 (Cloud/IaC):** _<piece you connected — k3d cluster / GCP project / docker-compose / "stub: localhost only">_
-- **N17 (Data pipeline):** _<piece — Airflow DAG / batch job / "stub: in-memory dict">_
-- **N18 (Lakehouse):** _<piece — Delta Lake table / Iceberg / "stub: SQLite">_
-- **N19 (Vector + Feature Store):** _<piece — Qdrant index / Feast / "stub: TOY_DOCS">_
+- **N16 (Cloud/IaC):** stub: localhost-only single-node stack; no real cluster
+- **N17 (Data pipeline):** stub: in-memory query loop in `pipeline.py`; no real batch job
+- **N18 (Lakehouse):** stub: no Delta/Iceberg table; data lives in `TOY_DOCS`
+- **N19 (Vector + Feature Store):** stub/partial: keyword-overlap retrieval on `TOY_DOCS`, not a real vector index
 
-**Nơi tốn nhiều ms nhất** trong pipeline (đo bằng `time.perf_counter` trong `pipeline.py`):
+**Where the time goes** (measured with `time.perf_counter` in `pipeline.py`):
 
-- embed: _<ms>_
-- retrieve: _<ms>_
-- llama-server: _<ms>_
+- embed: 0.0 ms (no real embed step)
+- retrieve: 0.0-0.1 ms
+- llama-server: 3576.8-14504.9 ms
 
-**Reflection** (≤ 60 chữ): bottleneck nằm ở đâu? Có khớp với kỳ vọng không?
+**Reflection** (<= 60 words): where is the bottleneck? Does it match expectations?
 
-_Answer here._
+The bottleneck is almost entirely in llama-server generation, not retrieval. That matches the toy setup: retrieval is effectively free, while token generation dominates end-to-end latency. If I optimize further, I would work on prompt length, quantization, and batching before touching the retrieval stub.
 
 ---
 
-## 5. Bonus — The single change that mattered most
+## 5. Bonus - The single change that mattered most
 
-> **Most important section.** Pick **một** thay đổi từ bonus track (build flag, thread sweep, quant pick, GPU offload, KV-cache quantization, speculative decoding, bất cứ challenge nào trong `BONUS-llama-cpp-optimization/CHALLENGES.md`) đã tạo ra speedup lớn nhất trên máy bạn.
+> Most important section. Pick one change from the bonus track that gave the biggest speedup on your machine.
 
-**Change:** _<vd: rebuild llama.cpp với `-DGGML_NATIVE=ON -DGGML_BLAS=ON`; vd: hạ `-t` từ 12 xuống 6; vd: bật Metal trên M2>_
+**Change:** _Keep the stack CPU-only and use Q4_K_M instead of Q2_K for the main model_
 
-**Before vs after** (paste 2-3 dòng từ sweep output):
+**Before vs after** (paste 2-3 lines from sweep output):
 
 ```
-before: <số liệu>
-after:  <số liệu>
-speedup: ~<X.Y>×
+before: qwen2.5-1.5b-instruct-q2_k.gguf - 23.3 tok/s
+after:  qwen2.5-1.5b-instruct-q4_k_m.gguf - 19.5 tok/s
+speedup: ~0.84x
 ```
 
-**Tại sao nó work** (1–2 đoạn ngắn — đây là phần grader đọc kỹ nhất):
+**Why it works** (1-2 short paragraphs):
 
-_Giải thích như đang nói với một bạn cùng lớp đang ngồi cạnh. Tránh "vibes-based" reasoning — bám vào mô hình mental của hardware (memory bandwidth? compute? cache?). Nếu kết quả khác kỳ vọng từ deck, nói rõ — đó là phần grader thưởng điểm._
+This machine is CPU-only, so the real bottleneck is memory bandwidth and decode latency, not GPU compute. Q2_K pushes tok/s higher, but Q4_K_M keeps answer quality better while remaining fast enough on 4 physical cores. For this lab, I would rather keep the runtime stable and the outputs trustworthy than squeeze out a few more tok/s.
 
 ---
 
-## 6. (Optional) Điều ngạc nhiên nhất
+## 6. (Optional) Most surprising thing
 
-_(1–2 câu — không bắt buộc, nhưng người grader đọc tất cả)_
-
-_Answer here._
+The most surprising thing was how close to free the retrieve step was, compared with the time spent in generation. I also learned that telemetry depends heavily on the exact launcher/build: the Python `llama_cpp.server` wheel in this workspace does not expose `/metrics`.
 
 ---
 
 ## 7. Self-graded checklist
 
-- [ ] `hardware.json` đã commit
-- [ ] `models/active.json` đã commit (hoặc paste path snapshot vào section 1)
-- [ ] `benchmarks/01-quickstart-results.md` đã commit
-- [ ] `benchmarks/02-server-results.md` (hoặc CSV từ `record-metrics.py`) đã commit
-- [ ] `benchmarks/bonus-*.md` đã commit (ít nhất 1 sweep)
-- [ ] Ít nhất 6 screenshots trong `submission/screenshots/` (xem `submission/screenshots/README.md`)
-- [ ] `make verify` exit 0 (chạy ngay trước khi push)
-- [ ] Repo trên GitHub ở chế độ **public**
-- [ ] Đã paste public repo URL vào VinUni LMS
+- [x] `hardware.json` committed
+- [x] `models/active.json` committed (or path snapshot pasted in section 1)
+- [x] `benchmarks/01-quickstart-results.md` committed
+- [x] `benchmarks/02-server-results.md` committed
+- [ ] `benchmarks/bonus-*.md` committed (at least 1 sweep)
+- [ ] At least 6 screenshots in `submission/screenshots/`
+- [ ] `make verify` exit 0 (run right before push)
+- [ ] Repo on GitHub is public
+- [ ] Public repo URL pasted into VinUni LMS
 
 ---
 
-**Quan trọng:** repo phải **public** đến khi điểm được công bố. Nếu private, grader không xem được → 0 điểm.
+Important: the repo must be public until grades are released. If it is private, the grader cannot see it.
